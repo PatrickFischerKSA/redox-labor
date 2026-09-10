@@ -1,6 +1,6 @@
 import { lessons, questions, diagnostic, glossary } from './data.js';
+import { authenticate, currentAccount, isConfigured, isConnected, logout, restoreSession, submitAttempt, submitDiagnostic, updatePosition } from './sync.js';
 
-const storageKey = 'redox-labor-progress-v1';
 const initialState = { lesson: 0, completed: {}, attempts: {}, streak: 0, level: 1, diagnosticDone: false };
 let state = loadState();
 let activeQuestions = {};
@@ -17,13 +17,31 @@ const workspace = $('#workspace');
 const questionCard = $('#questionCard');
 
 function loadState() {
-  try { return { ...initialState, ...JSON.parse(localStorage.getItem(storageKey) || '{}') }; }
-  catch { return { ...initialState }; }
+  return { ...initialState };
 }
 
 function saveState() {
-  localStorage.setItem(storageKey, JSON.stringify(state));
   updateProgress();
+}
+
+function applyRemoteProgress(data, resetQuestions = false) {
+  state = {
+    ...initialState,
+    lesson: data.progress.lessonIndex,
+    level: data.progress.level,
+    streak: data.progress.streak,
+    diagnosticDone: Boolean(data.progress.diagnosticDone),
+    completed: data.progress.completed || {},
+    attempts: data.progress.attempts || {}
+  };
+  if (resetQuestions) activeQuestions = {};
+  updateProgress();
+}
+
+function setSyncStatus(kind, label) {
+  const el = $('#syncStatus');
+  el.className = `sync-status ${kind || ''}`;
+  el.querySelector('strong').textContent = label;
 }
 
 function normalized(value) {
@@ -76,6 +94,7 @@ function openLesson(index) {
   state.lesson = Math.max(0, Math.min(lessons.length - 1, index));
   currentIndex = 0; selected = []; hintIndex = 0; checked = false;
   saveState();
+  if (isConnected()) updatePosition(state.lesson).catch(() => setSyncStatus('error', 'Speichern gestört'));
   const lesson = lessons[state.lesson];
   activeQuestions[lesson.id] = null;
   $('#lessonKicker').textContent = lesson.kicker;
@@ -167,16 +186,28 @@ function evaluate(q) {
   return 0;
 }
 
-function checkAnswer(q) {
+async function checkAnswer(q) {
   if (checked) return nextQuestion();
   if ((q.type === 'single' || q.type === 'multi') && !selected.length) return toast('Wähle zuerst eine Antwort.');
   if (q.type === 'text' && !$('#textAnswer').value.trim()) return toast('Gib zuerst eine Antwort ein.');
+  if (!isConnected()) return openAccount('Für eine verlässliche Lehrstandssicherung musst du dich zuerst mit der Datenbank verbinden.');
+  const response = q.type === 'text' ? $('#textAnswer').value : q.type === 'sort' ? sortItems : selected;
   checked = true;
-  const score = evaluate(q);
-  state.attempts[q.id] = (state.attempts[q.id] || 0) + 1;
-  state.completed[q.id] = Math.max(state.completed[q.id] || 0, score);
-  if (score === 1) { state.streak += 1; if (state.streak >= 3) state.level = Math.min(3, state.level + 1); }
-  else { state.streak = 0; if ((state.attempts[q.id] || 0) >= 2) state.level = Math.max(1, state.level - 1); }
+  $('#checkAnswer').disabled = true;
+  setSyncStatus('', 'Wird gespeichert …');
+  let result;
+  try {
+    result = await submitAttempt(q.id, response, state.lesson);
+  } catch (error) {
+    checked = false;
+    $('#checkAnswer').disabled = false;
+    setSyncStatus('error', 'Nicht gespeichert');
+    $('#feedback').innerHTML = `<div class="feedback incorrect"><strong>Nicht gespeichert.</strong><span>${error.message} Deine Antwort bleibt unbearbeitet. Versuche es nach Wiederherstellung der Verbindung erneut.</span></div>`;
+    return;
+  }
+  const score = result.score;
+  applyRemoteProgress(result);
+  setSyncStatus('online', 'Datenbank aktuell');
   saveState();
   markOptions(q);
   const kind = score === 1 ? 'correct' : score >= .5 ? 'partial' : 'incorrect';
@@ -184,6 +215,7 @@ function checkAnswer(q) {
   let repair = score === 1 ? q.explain : `${diagnose(q)} ${q.explain}`;
   $('#feedback').innerHTML = `<div class="feedback ${kind}"><strong>${title}</strong><span>${repair}</span></div>`;
   $('#checkAnswer').textContent = currentIndex === lessonQuestions(q.lesson).length - 1 ? 'Etappe auswerten' : 'Weiter';
+  $('#checkAnswer').disabled = false;
   $('#showHint').hidden = true;
   $('#masteryValue').textContent = masteryFor(q.lesson);
   $('#difficultyLabel').textContent = `Niveau: ${['Basis','Aufbau','Transfer'][state.level-1]}`;
@@ -235,20 +267,25 @@ function renderFinalSummary() {
   $('#printResult').addEventListener('click', () => window.print());
 }
 
-function startDiagnostic() {
-  let i = 0, score = 0;
-  const dialog = $('#diagnosticDialog'); dialog.showModal();
+function startDiagnostic(reuseDialog = false) {
+  if (!isConnected()) return openAccount('Verbinde zuerst dein Lernkonto. Die Diagnose wird danach in der Datenbank gesichert.');
+  let i = 0;
+  const answers = [];
+  const dialog = $('#diagnosticDialog');
+  if (!reuseDialog) dialog.showModal();
   const render = () => {
     if (i >= diagnostic.length) {
-      state.level = score <= 1 ? 1 : score <= 3 ? 2 : 3;
-      state.diagnosticDone = true; saveState();
+      submitDiagnostic(answers).then(data => {
+        applyRemoteProgress(data);
+        setSyncStatus('online', 'Datenbank aktuell');
       $('#diagnosticContent').innerHTML = `<div class="feedback correct"><strong>Dein Startniveau: ${['Basis','Aufbau','Transfer'][state.level-1]}</strong><span>Die Aufgaben passen sich weiter an deine Antworten an. Keine Etappe bleibt gesperrt.</span></div><button class="primary" id="beginLearning">Lernpfad öffnen</button>`;
       $('#beginLearning').addEventListener('click', () => { dialog.close(); openLesson(state.level === 3 ? 2 : 0); });
+      }).catch(error => { $('#diagnosticContent').innerHTML = `<div class="feedback incorrect"><strong>Diagnose nicht gespeichert.</strong><span>${error.message}</span></div><button class="secondary" id="retryDiagnostic">Erneut versuchen</button>`; $('#retryDiagnostic').addEventListener('click', () => startDiagnostic(true)); });
       return;
     }
     const q = diagnostic[i];
     $('#diagnosticContent').innerHTML = `<p class="question-meta">FRAGE ${i+1} / ${diagnostic.length}</p><h3>${q.prompt}</h3>${q.options.map((o,j)=>`<button class="option diagnostic-option" data-diagnostic="${j}">${o}</button>`).join('')}`;
-    document.querySelectorAll('[data-diagnostic]').forEach(btn => btn.addEventListener('click', () => { if (Number(btn.dataset.diagnostic) === q.answer) score++; i++; render(); }));
+    document.querySelectorAll('[data-diagnostic]').forEach(btn => btn.addEventListener('click', () => { answers.push(Number(btn.dataset.diagnostic)); i++; render(); }));
   };
   render();
 }
@@ -260,15 +297,60 @@ function renderGlossary(filter='') {
 
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
 
+function openAccount(message='') {
+  const account = currentAccount();
+  $('#accountForm').hidden = isConnected();
+  $('#connectedAccount').hidden = !isConnected();
+  $('#accountMessage').textContent = message;
+  if (isConnected()) $('#connectedName').textContent = `${account.alias} · Klasse ${account.classCode}`;
+  $('#accountDialog').showModal();
+}
+
+async function initializeAccount() {
+  if (!isConfigured()) {
+    setSyncStatus('error', 'Ohne Datenbank');
+    return;
+  }
+  if (!isConnected()) {
+    setSyncStatus('', 'Anmeldung nötig');
+    return;
+  }
+  setSyncStatus('', 'Lernstand wird geladen …');
+  try {
+    const data = await restoreSession();
+    if (data) applyRemoteProgress(data, true);
+    setSyncStatus('online', 'Datenbank aktuell');
+  } catch {
+    setSyncStatus('error', 'Anmeldung nötig');
+  }
+}
+
 $('#startButton').addEventListener('click', startDiagnostic);
 $('#continueButton').addEventListener('click', () => openLesson(state.lesson));
 $('#prevLesson').addEventListener('click', () => openLesson(state.lesson - 1));
 $('#nextLesson').addEventListener('click', () => state.lesson === lessons.length - 1 ? renderFinalSummary() : openLesson(state.lesson + 1));
 $('#glossaryButton').addEventListener('click', () => { renderGlossary(); $('#glossaryDialog').showModal(); });
 $('#glossarySearch').addEventListener('input', e => renderGlossary(e.target.value));
-$('#resetButton').addEventListener('click', () => { if (confirm('Gesamten Lernfortschritt auf diesem Gerät löschen?')) { localStorage.removeItem(storageKey); state={...initialState}; activeQuestions={}; updateProgress(); workspace.hidden=true; toast('Lernfortschritt gelöscht.'); } });
+$('#accountButton').addEventListener('click', () => openAccount());
+$('#syncStatus').addEventListener('click', () => openAccount());
+$('#accountForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const submitter = event.submitter;
+  const form = new FormData(event.currentTarget);
+  const credentials = { classCode: form.get('classCode'), alias: form.get('alias'), pin: form.get('pin') };
+  $('#accountMessage').textContent = 'Verbindung wird hergestellt …';
+  try {
+    const data = await authenticate(submitter.value, credentials);
+    applyRemoteProgress(data, true);
+    setSyncStatus('online', 'Datenbank aktuell');
+    openAccount();
+  } catch (error) { $('#accountMessage').textContent = error.message; }
+});
+$('#logoutButton').addEventListener('click', () => { logout(); state={...initialState}; activeQuestions={}; workspace.hidden=true; updateProgress(); setSyncStatus('', 'Anmeldung nötig'); $('#accountDialog').close(); });
+$('#resetButton').addEventListener('click', () => toast('Datenbankstände können nur durch die Lehrperson gelöscht werden.'));
 $('#menuButton').addEventListener('click', e => { const open=e.currentTarget.getAttribute('aria-expanded')==='true'; e.currentTarget.setAttribute('aria-expanded',String(!open)); mobileNav.hidden=open; });
 document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => document.getElementById(btn.dataset.close).close()));
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); }));
 
 updateProgress();
+initializeAccount();

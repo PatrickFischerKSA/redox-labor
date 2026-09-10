@@ -1,0 +1,22 @@
+{
+  "name": "redox-lernstand-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "types": "wrangler types",
+    "dev": "wrangler dev --local --persist-to=.wrangler/state",
+    "db:local": "wrangler d1 migrations apply redox-lernstand --local",
+    "db:remote": "wrangler d1 migrations apply redox-lernstand --remote",
+    "deploy:check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "wrangler": "^4.35.0"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
+  }
+}

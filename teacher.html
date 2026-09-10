@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#081c2b">
+  <meta name="description" content="Lehrpersonenansicht für das Redox-Labor.">
+  <title>Lehrstand · Redox-Labor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="teacher-page">
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">e<sup>−</sup></span><span>REDOX<br><strong>LABOR</strong></span></a>
+    <a class="secondary compact" href="index.html">Zur Lerneinheit</a>
+  </header>
+  <main class="teacher-main">
+    <section class="teacher-hero">
+      <p class="eyebrow">LEHRSTANDSSICHERUNG</p>
+      <h1>Klassenfortschritt</h1>
+      <p class="lede">Lernstände stammen direkt aus der Datenbank. Die Übersicht zeigt beste Ergebnisse und die Zahl aller gespeicherten Versuche.</p>
+    </section>
+
+    <section class="teacher-grid">
+      <form class="teacher-panel teacher-form" id="reportForm">
+        <p class="eyebrow">BERICHT LADEN</p>
+        <label>Klassen-Code<input name="classCode" required minlength="4" maxlength="20" placeholder="REDOX26"></label>
+        <label>Admin-Token<input name="adminToken" type="password" required autocomplete="current-password" placeholder="Cloudflare Secret"></label>
+        <button class="primary">Lernstand abrufen</button>
+        <p id="reportMessage" class="form-message" role="status"></p>
+      </form>
+
+      <form class="teacher-panel teacher-form" id="classForm">
+        <p class="eyebrow">NEUE KLASSE</p>
+        <label>Klassenname<input name="name" required minlength="2" maxlength="80" placeholder="Chemie 2a"></label>
+        <label>Neuer Klassen-Code<input name="code" required minlength="4" maxlength="20" placeholder="REDOX26"></label>
+        <label>Admin-Token<input name="adminToken" type="password" required autocomplete="current-password"></label>
+        <button class="secondary">Klasse erstellen</button>
+        <p id="classMessage" class="form-message" role="status"></p>
+      </form>
+    </section>
+
+    <section id="report" class="report" hidden>
+      <div class="report-head">
+        <div><p class="eyebrow">DATENBANKAUSZUG</p><h2 id="reportTitle"></h2><p id="reportMeta"></p></div>
+        <button class="secondary" id="csvButton">CSV exportieren</button>
+      </div>
+      <div class="report-summary" id="reportSummary"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Lernname</th><th>Mastery</th><th>Aufgaben</th><th>Versuche</th><th>Niveau</th><th>Letzte Aktivität</th></tr></thead>
+          <tbody id="reportRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script type="module" src="teacher.js"></script>
+</body>
+</html>
