@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#081c2b">
+  <meta name="description" content="Interaktive Lerneinheit zu Redoxreaktionen mit adaptiven Übungen, Selbstkorrektur und Erklärungen.">
+  <title>Redox-Labor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Zum Inhalt springen</a>
+  <header class="topbar">
+    <a class="brand" href="#start" aria-label="Redox-Labor Startseite">
+      <span class="brand-mark" aria-hidden="true">e<sup>−</sup></span>
+      <span>REDOX<br><strong>LABOR</strong></span>
+    </a>
+    <div class="top-progress" aria-label="Gesamtfortschritt">
+      <span id="progressLabel">0 % gemeistert</span>
+      <div class="progress-track"><span id="progressBar"></span></div>
+    </div>
+    <button class="icon-button" id="menuButton" aria-expanded="false" aria-controls="mobileNav">Menü</button>
+  </header>
+
+  <nav class="mobile-nav" id="mobileNav" aria-label="Mobile Navigation" hidden></nav>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Lernpfad">
+      <p class="eyebrow">DEIN LERNPFAD</p>
+      <nav id="lessonNav"></nav>
+      <div class="sidebar-foot">
+        <button class="text-button" id="glossaryButton">Glossar öffnen</button>
+        <button class="text-button danger" id="resetButton">Fortschritt löschen</button>
+      </div>
+    </aside>
+
+    <main id="main" tabindex="-1">
+      <section id="start" class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">INTERAKTIVE LERNEINHEIT</p>
+          <h1>Wer bekommt<br>die Elektronen?</h1>
+          <p class="lede">Verstehe Redoxreaktionen Schritt für Schritt. Experimentiere, begründe und erhalte Rückmeldungen, die genau an deinem Denkweg ansetzen.</p>
+          <div class="hero-actions">
+            <button class="primary" id="startButton">Lernstand prüfen</button>
+            <button class="secondary" id="continueButton" hidden>Weiterlernen</button>
+          </div>
+          <p class="microcopy">ca. 45–70 Minuten · 6 Etappen · Fortschritt bleibt auf diesem Gerät</p>
+        </div>
+        <div class="electron-scene" aria-label="Schematische Elektronenübertragung von Natrium zu Chlor">
+          <div class="atom atom-na"><span>Na</span><small>Elektronendonator</small></div>
+          <div class="electron" aria-hidden="true">e<sup>−</sup></div>
+          <div class="transfer-line" aria-hidden="true"></div>
+          <div class="atom atom-cl"><span>Cl</span><small>Elektronenakzeptor</small></div>
+          <p><strong>Oxidation</strong> gibt Elektronen ab.<br><strong>Reduktion</strong> nimmt sie auf.</p>
+        </div>
+      </section>
+
+      <section class="learning-overview" aria-labelledby="overviewTitle">
+        <div>
+          <p class="eyebrow">SO ARBEITEST DU</p>
+          <h2 id="overviewTitle">Vom Teilchen zur Vorhersage</h2>
+        </div>
+        <div class="overview-grid">
+          <article><span>01</span><h3>Erkunden</h3><p>Beobachtungen deuten und Elektronenwege sichtbar machen.</p></article>
+          <article><span>02</span><h3>Üben</h3><p>Aufgaben reagieren auf deine Antworten und bieten gestufte Hilfen.</p></article>
+          <article><span>03</span><h3>Anwenden</h3><p>Reaktionen ausgleichen und ihre Richtung begründet vorhersagen.</p></article>
+        </div>
+      </section>
+
+      <section id="workspace" class="workspace" aria-live="polite" hidden>
+        <div class="lesson-header">
+          <div>
+            <p class="eyebrow" id="lessonKicker"></p>
+            <h2 id="lessonTitle"></h2>
+            <p id="lessonIntro"></p>
+          </div>
+          <div class="mastery-badge"><span id="masteryValue">0</span><small>Mastery</small></div>
+        </div>
+        <div id="conceptPanel" class="concept-panel"></div>
+        <div class="practice-head">
+          <div><p class="eyebrow">ADAPTIVES TRAINING</p><h3 id="practiceTitle">Deine Aufgaben</h3></div>
+          <div class="difficulty" id="difficultyLabel">Niveau: Basis</div>
+        </div>
+        <div id="questionCard" class="question-card"></div>
+        <div class="lesson-controls">
+          <button class="secondary" id="prevLesson">Vorherige Etappe</button>
+          <button class="primary" id="nextLesson">Nächste Etappe</button>
+        </div>
+      </section>
+
+      <section class="sources-note">
+        <p class="eyebrow">GRUNDLAGE</p>
+        <p>Inhaltlich aufgebaut auf den bereitgestellten Unterrichtsressourcen zu Redoxreaktionen. Schreibweisen und Regeln wurden für interaktives Lernen didaktisch geordnet und ergänzt.</p>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="diagnosticDialog" class="modal">
+    <button class="modal-close" data-close="diagnosticDialog" aria-label="Dialog schliessen">×</button>
+    <p class="eyebrow">KURZDIAGNOSE</p>
+    <h2>Wo steigst du ein?</h2>
+    <p>Vier kurze Aufgaben bestimmen dein Startniveau. Du kannst später alle Etappen bearbeiten.</p>
+    <div id="diagnosticContent"></div>
+  </dialog>
+
+  <dialog id="glossaryDialog" class="modal glossary-modal">
+    <button class="modal-close" data-close="glossaryDialog" aria-label="Dialog schliessen">×</button>
+    <p class="eyebrow">NACHSCHLAGEN</p>
+    <h2>Redox-Glossar</h2>
+    <label class="search-label">Begriff suchen<input id="glossarySearch" type="search" placeholder="z. B. Oxidationsmittel"></label>
+    <div id="glossaryList"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
