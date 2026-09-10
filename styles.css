@@ -177,6 +177,7 @@ h2 { font-size: clamp(2.2rem, 4vw, 4.2rem); line-height: 1; letter-spacing: -.04
 .teacher-hero h1 { font-size: clamp(3rem, 7vw, 6.5rem); }
 .teacher-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 4rem 0; }
 .teacher-panel { padding: clamp(1.5rem, 3vw, 2.5rem); background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--radius); }
+.teacher-panel-wide { grid-column: 1 / -1; max-width: 680px; }
 .report { margin-top: 5rem; }
 .report-head { display: flex; justify-content: space-between; align-items: end; gap: 2rem; }
 .report-head h2 { font-size: clamp(2rem, 4vw, 3.5rem); }

@@ -1,6 +1,6 @@
 const apiUrl = String(window.REDOX_API_URL || '').replace(/\/$/, '');
 const tokenKey = 'redox-session-token';
-let session = { token: sessionStorage.getItem(tokenKey), alias: null, classCode: null };
+let session = { token: sessionStorage.getItem(tokenKey), alias: null };
 
 export function isConfigured() { return Boolean(apiUrl); }
 export function isConnected() { return Boolean(apiUrl && session.token); }
@@ -19,7 +19,7 @@ async function request(path, options = {}) {
 
 export async function authenticate(mode, credentials) {
   const data = await request(`/v1/session/${mode}`, { method: 'POST', body: JSON.stringify(credentials) });
-  session = { token: data.token, alias: data.learner.alias, classCode: data.learner.classCode };
+  session = { token: data.token, alias: data.learner.alias };
   sessionStorage.setItem(tokenKey, data.token);
   return data;
 }
@@ -29,7 +29,6 @@ export async function restoreSession() {
   try {
     const data = await request('/v1/progress');
     session.alias = data.learner.alias;
-    session.classCode = data.learner.classCode;
     return data;
   } catch (error) {
     if (/Anmeldung|Sitzung/.test(error.message)) logout();
@@ -55,5 +54,5 @@ export async function updatePosition(lessonIndex) {
 
 export function logout() {
   sessionStorage.removeItem(tokenKey);
-  session = { token: null, alias: null, classCode: null };
+  session = { token: null, alias: null };
 }

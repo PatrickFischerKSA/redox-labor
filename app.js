@@ -302,7 +302,7 @@ function openAccount(message='') {
   $('#accountForm').hidden = isConnected();
   $('#connectedAccount').hidden = !isConnected();
   $('#accountMessage').textContent = message;
-  if (isConnected()) $('#connectedName').textContent = `${account.alias} · Klasse ${account.classCode}`;
+  if (isConnected()) $('#connectedName').textContent = account.alias;
   $('#accountDialog').showModal();
 }
 
@@ -337,7 +337,7 @@ $('#accountForm').addEventListener('submit', async event => {
   event.preventDefault();
   const submitter = event.submitter;
   const form = new FormData(event.currentTarget);
-  const credentials = { classCode: form.get('classCode'), alias: form.get('alias'), pin: form.get('pin') };
+  const credentials = { alias: form.get('alias'), pin: form.get('pin') };
   $('#accountMessage').textContent = 'Verbindung wird hergestellt …';
   try {
     const data = await authenticate(submitter.value, credentials);

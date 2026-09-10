@@ -21,27 +21,18 @@
     </section>
 
     <section class="teacher-grid">
-      <form class="teacher-panel teacher-form" id="reportForm">
+      <form class="teacher-panel teacher-form teacher-panel-wide" id="reportForm">
         <p class="eyebrow">BERICHT LADEN</p>
-        <label>Klassen-Code<input name="classCode" required minlength="4" maxlength="20" placeholder="REDOX26"></label>
         <label>Admin-Token<input name="adminToken" type="password" required autocomplete="current-password" placeholder="Cloudflare Secret"></label>
         <button class="primary">Lernstand abrufen</button>
         <p id="reportMessage" class="form-message" role="status"></p>
       </form>
 
-      <form class="teacher-panel teacher-form" id="classForm">
-        <p class="eyebrow">NEUE KLASSE</p>
-        <label>Klassenname<input name="name" required minlength="2" maxlength="80" placeholder="Chemie 2a"></label>
-        <label>Neuer Klassen-Code<input name="code" required minlength="4" maxlength="20" placeholder="REDOX26"></label>
-        <label>Admin-Token<input name="adminToken" type="password" required autocomplete="current-password"></label>
-        <button class="secondary">Klasse erstellen</button>
-        <p id="classMessage" class="form-message" role="status"></p>
-      </form>
     </section>
 
     <section id="report" class="report" hidden>
       <div class="report-head">
-        <div><p class="eyebrow">DATENBANKAUSZUG</p><h2 id="reportTitle"></h2><p id="reportMeta"></p></div>
+        <div><p class="eyebrow">DATENBANKAUSZUG</p><h2 id="reportTitle">Alle Lernenden</h2><p id="reportMeta"></p></div>
         <button class="secondary" id="csvButton">CSV exportieren</button>
       </div>
       <div class="report-summary" id="reportSummary"></div>

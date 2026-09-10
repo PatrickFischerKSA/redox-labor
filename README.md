@@ -10,7 +10,7 @@ Eine responsive, interaktive Lerneinheit zu Redoxreaktionen. Sie basiert auf den
 - gestufte Hinweise, Teilpunkte und erklärende Selbstkorrektur
 - kurze Eingangsdiagnose und adaptive Niveaustufe
 - serverseitiger Lernstand mit unveränderlichem Versuchsprotokoll
-- geräteübergreifende pseudonyme Lernkonten
+- geräteübergreifende pseudonyme Lernkonten ohne Klassen-Code
 - Lehrpersonenbericht mit CSV-Export
 - Glossar, Tastaturbedienung und responsive Darstellung
 - keine Build-Schritte und keine JavaScript-Abhängigkeiten
@@ -24,7 +24,7 @@ Die Datenbank führt zwei Ebenen:
 - `attempts` protokolliert jeden Lösungsversuch unverändert.
 - `mastery` speichert den besten Wert und die Zahl der Versuche je Aufgabe.
 
-Klassen, pseudonyme Lernkonten, Lernniveau und die letzte Etappe liegen ebenfalls in D1. Im Browser wird nur ein zeitlich begrenztes Sitzungstoken gespeichert, keine Fortschrittsdaten.
+Pseudonyme Lernkonten, Lernniveau und die letzte Etappe liegen ebenfalls in D1. Im Browser wird nur ein zeitlich begrenztes Sitzungstoken gespeichert, keine Fortschrittsdaten. Alle Lernenden verwenden einen gemeinsamen, intern verwalteten Lernbereich; ein Klassen-Code ist nicht erforderlich.
 
 ## Website lokal starten
 
@@ -61,7 +61,7 @@ Die beim Deployment ausgegebene Worker-URL in `config.js` eintragen. Beispiel:
 window.REDOX_API_URL = 'https://redox-lernstand-api.example.workers.dev';
 ```
 
-Danach über `teacher.html` mit dem Admin-Token eine Klasse und deren Klassen-Code anlegen. Lernende registrieren sich mit diesem Code, einem Pseudonym und einer persönlichen PIN.
+Danach können sich Lernende direkt mit einem Pseudonym und einer persönlichen PIN registrieren. Die Lehrpersonenansicht unter `teacher.html` zeigt alle registrierten Lernenden gemeinsam.
 
 ## GitHub Pages veröffentlichen
 

@@ -21,7 +21,7 @@ function date(value) {
 
 function renderReport(data) {
   currentReport = data;
-  $('#reportTitle').textContent = `${data.classroom.name} · ${data.classroom.code}`;
+  $('#reportTitle').textContent = 'Alle Lernenden';
   $('#reportMeta').textContent = `Stand: ${date(data.generatedAt)}`;
   const learners = data.learners;
   const average = learners.length ? Math.round(learners.reduce((sum, learner) => sum + Number(learner.mastery_percent), 0) / learners.length) : 0;
@@ -45,24 +45,15 @@ function exportCsv() {
   }).join(';')).join('\n');
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
-  link.download = `redox-${currentReport.classroom.code}-lernstand.csv`;
+  link.download = 'redox-lernstand.csv';
   link.click(); URL.revokeObjectURL(link.href);
 }
 
 $('#reportForm').addEventListener('submit', async event => {
   event.preventDefault(); const data = new FormData(event.currentTarget);
   $('#reportMessage').textContent = 'Daten werden geladen …';
-  try { renderReport(await api(`/v1/admin/classes/${encodeURIComponent(String(data.get('classCode')).toUpperCase())}/report`, String(data.get('adminToken')))); $('#reportMessage').textContent = ''; }
+  try { renderReport(await api('/v1/admin/report', String(data.get('adminToken')))); $('#reportMessage').textContent = ''; }
   catch (error) { $('#reportMessage').textContent = error.message; }
-});
-
-$('#classForm').addEventListener('submit', async event => {
-  event.preventDefault(); const data = new FormData(event.currentTarget);
-  $('#classMessage').textContent = 'Klasse wird erstellt …';
-  try {
-    const result = await api('/v1/admin/classes', String(data.get('adminToken')), { method:'POST', body:JSON.stringify({name:data.get('name'),code:data.get('code')}) });
-    $('#classMessage').textContent = `Klasse ${result.name} mit Code ${result.code} ist bereit.`;
-  } catch (error) { $('#classMessage').textContent = error.message; }
 });
 
 $('#csvButton').addEventListener('click', exportCsv);

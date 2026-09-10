@@ -5,7 +5,8 @@
   "compatibility_date": "2026-09-10",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "ALLOWED_ORIGINS": "http://localhost:8000,https://patrickfischerksa.github.io"
+    "ALLOWED_ORIGINS": "http://localhost:8000,https://patrickfischerksa.github.io",
+    "DEFAULT_CLASS_CODE": "PUBLIC"
   },
   "d1_databases": [
     {

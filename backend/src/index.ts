@@ -68,12 +68,11 @@ function bearer(request: Request): string | null {
   return value?.startsWith('Bearer ') ? value.slice(7) : null;
 }
 
-function credentials(data: Json): { classCode: string; alias: string; pin: string } | null {
-  if (typeof data.classCode !== 'string' || typeof data.alias !== 'string' || typeof data.pin !== 'string') return null;
-  const classCode = data.classCode.trim().toUpperCase();
+function credentials(data: Json): { alias: string; pin: string } | null {
+  if (typeof data.alias !== 'string' || typeof data.pin !== 'string') return null;
   const alias = data.alias.trim();
-  if (!/^[A-Z0-9-]{4,20}$/.test(classCode) || alias.length < 2 || alias.length > 40 || /[\u0000-\u001F\u007F]/.test(alias) || data.pin.length < 6 || data.pin.length > 12) return null;
-  return { classCode, alias, pin: data.pin };
+  if (alias.length < 2 || alias.length > 40 || /[\u0000-\u001F\u007F]/.test(alias) || data.pin.length < 6 || data.pin.length > 12) return null;
+  return { alias, pin: data.pin };
 }
 
 async function createSession(learnerId: string, env: Env): Promise<string> {
@@ -105,7 +104,7 @@ async function progressPayload(learner: AuthenticatedLearner, env: Env): Promise
   const state = stateResult.results[0] as StateRow | undefined;
   const rows = masteryResult.results as MasteryRow[];
   return {
-    learner: { alias: learner.alias, classCode: learner.class_code },
+    learner: { alias: learner.alias },
     progress: {
       lessonIndex: state?.lesson_index ?? 0,
       level: state?.level ?? 1,
@@ -119,9 +118,9 @@ async function progressPayload(learner: AuthenticatedLearner, env: Env): Promise
 
 async function register(request: Request, env: Env): Promise<Response> {
   const values = credentials(await body(request));
-  if (!values) return error('Klassen-Code, Lernname oder PIN sind ungültig.', 400, request, env);
-  const classroom = await env.DB.prepare('SELECT id FROM classes WHERE code=?1').bind(values.classCode).first<{ id: string }>();
-  if (!classroom) return error('Dieser Klassen-Code existiert nicht.', 404, request, env);
+  if (!values) return error('Lernname oder PIN sind ungültig.', 400, request, env);
+  const classroom = await env.DB.prepare('SELECT id FROM classes WHERE code=?1').bind(env.DEFAULT_CLASS_CODE).first<{ id: string }>();
+  if (!classroom) return error('Der gemeinsame Lernbereich ist noch nicht eingerichtet.', 503, request, env);
   const learnerId = crypto.randomUUID();
   const salt = randomHex(16);
   const pinHash = await hashPin(values.pin, salt, env.AUTH_PEPPER);
@@ -131,18 +130,18 @@ async function register(request: Request, env: Env): Promise<Response> {
       env.DB.prepare('INSERT INTO learner_state (learner_id) VALUES (?1)').bind(learnerId)
     ]);
   } catch {
-    return error('Dieser Lernname ist in der Klasse bereits vergeben.', 409, request, env);
+    return error('Dieser Lernname ist bereits vergeben.', 409, request, env);
   }
   const token = await createSession(learnerId, env);
-  return json({ token, ...(await progressPayload({ id: learnerId, alias: values.alias, class_code: values.classCode }, env)) }, 201, corsHeaders(request, env));
+  return json({ token, ...(await progressPayload({ id: learnerId, alias: values.alias, class_code: env.DEFAULT_CLASS_CODE }, env)) }, 201, corsHeaders(request, env));
 }
 
 async function login(request: Request, env: Env): Promise<Response> {
   const values = credentials(await body(request));
   if (!values) return error('Anmeldedaten sind ungültig.', 400, request, env);
-  const row = await env.DB.prepare(`SELECT l.id,l.alias,l.pin_hash,l.pin_salt,c.code AS class_code FROM learners l JOIN classes c ON c.id=l.class_id WHERE c.code=?1 AND l.alias=?2`).bind(values.classCode, values.alias).first<AuthenticatedLearner & { pin_hash: string; pin_salt: string }>();
+  const row = await env.DB.prepare(`SELECT l.id,l.alias,l.pin_hash,l.pin_salt,c.code AS class_code FROM learners l JOIN classes c ON c.id=l.class_id WHERE c.code=?1 AND l.alias=?2`).bind(env.DEFAULT_CLASS_CODE, values.alias).first<AuthenticatedLearner & { pin_hash: string; pin_salt: string }>();
   const candidateHash = await hashPin(values.pin, row?.pin_salt ?? '00000000000000000000000000000000', env.AUTH_PEPPER);
-  if (!row || !constantTimeEqual(candidateHash, row.pin_hash)) return error('Klassen-Code, Lernname oder PIN stimmen nicht.', 401, request, env);
+  if (!row || !constantTimeEqual(candidateHash, row.pin_hash)) return error('Lernname oder PIN stimmen nicht.', 401, request, env);
   const token = await createSession(row.id, env);
   return json({ token, ...(await progressPayload(row, env)) }, 200, corsHeaders(request, env));
 }
@@ -187,23 +186,9 @@ async function adminAuthorized(request: Request, env: Env): Promise<boolean> {
 
 async function adminRoute(request: Request, url: URL, env: Env): Promise<Response> {
   if (!(await adminAuthorized(request, env))) return error('Lehrpersonen-Zugriff verweigert.', 401, request, env);
-  if (request.method === 'POST' && url.pathname === '/v1/admin/classes') {
-    const data = await body(request);
-    if (typeof data.code !== 'string' || typeof data.name !== 'string') return error('Name und Code fehlen.', 400, request, env);
-    const code = data.code.trim().toUpperCase();
-    const name = data.name.trim();
-    if (!/^[A-Z0-9-]{4,20}$/.test(code) || name.length < 2 || name.length > 80) return error('Klassenname oder Code ist ungültig.', 400, request, env);
-    try { await env.DB.prepare('INSERT INTO classes (id,code,name) VALUES (?1,?2,?3)').bind(crypto.randomUUID(),code,name).run(); }
-    catch { return error('Der Klassen-Code ist bereits vergeben.', 409, request, env); }
-    return json({ code, name }, 201, corsHeaders(request, env));
-  }
-  const match = url.pathname.match(/^\/v1\/admin\/classes\/([A-Z0-9-]{4,20})\/report$/i);
-  if (request.method === 'GET' && match?.[1]) {
-    const code = match[1].toUpperCase();
-    const classroom = await env.DB.prepare('SELECT id,code,name,created_at FROM classes WHERE code=?1').bind(code).first();
-    if (!classroom) return error('Klasse nicht gefunden.', 404, request, env);
-    const result = await env.DB.prepare(`SELECT l.alias,l.created_at,l.last_seen_at,s.lesson_index,s.level,s.diagnostic_done,COUNT(m.question_id) AS answered,COALESCE(ROUND(SUM(m.best_score)*100.0/34),0) AS mastery_percent,COALESCE(SUM(m.attempt_count),0) AS attempts FROM learners l JOIN learner_state s ON s.learner_id=l.id LEFT JOIN mastery m ON m.learner_id=l.id WHERE l.class_id=?1 GROUP BY l.id ORDER BY l.alias`).bind((classroom as { id: string }).id).all();
-    return json({ classroom, learners: result.results, generatedAt: new Date().toISOString() }, 200, corsHeaders(request, env));
+  if (request.method === 'GET' && url.pathname === '/v1/admin/report') {
+    const result = await env.DB.prepare(`SELECT l.alias,l.created_at,l.last_seen_at,s.lesson_index,s.level,s.diagnostic_done,COUNT(m.question_id) AS answered,COALESCE(ROUND(SUM(m.best_score)*100.0/34),0) AS mastery_percent,COALESCE(SUM(m.attempt_count),0) AS attempts FROM learners l JOIN learner_state s ON s.learner_id=l.id LEFT JOIN mastery m ON m.learner_id=l.id GROUP BY l.id ORDER BY l.alias`).all();
+    return json({ learners: result.results, generatedAt: new Date().toISOString() }, 200, corsHeaders(request, env));
   }
   return error('Admin-Endpunkt nicht gefunden.', 404, request, env);
 }
