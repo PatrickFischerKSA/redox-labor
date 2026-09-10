@@ -50,6 +50,7 @@ Die ausgegebene `database_id` in `backend/wrangler.jsonc` einsetzen. Dort ausser
 
 ```bash
 npx wrangler secret put ADMIN_TOKEN
+npx wrangler secret put AUTH_PEPPER
 npm run db:remote
 npm run deploy
 ```
@@ -76,7 +77,7 @@ Die Datei `.nojekyll` stellt sicher, dass GitHub Pages alle statischen Dateien u
 Die Anwendung lädt nur die Schriftarten DM Mono und Manrope von Google Fonts. Für einen vollständig externdienstfreien Schriftbetrieb kann die `@import`-Zeile in `styles.css` entfernt werden; dann greifen die Systemschriften.
 
 - Für Lernnamen sollten ausschliesslich Pseudonyme verwendet werden.
-- PINs werden mit PBKDF2-SHA-256 und individuellem Salt gespeichert, nicht im Klartext.
+- PINs werden mit HMAC-SHA-256, individuellem Salt und einem separaten geheimen Pepper gespeichert, nicht im Klartext.
 - Das Admin-Token liegt ausschliesslich als Cloudflare Secret vor.
 - CORS beschränkt API-Zugriffe auf die konfigurierten Website-Origins.
 - Einzelne Lernkonten können durch eine Lehrperson direkt in D1 gelöscht werden. Dank Fremdschlüsseln mit `ON DELETE CASCADE` verschwinden dabei auch Sitzungen, Versuche und Mastery-Daten.

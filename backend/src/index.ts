@@ -50,11 +50,10 @@ async function sha256(value: string): Promise<string> {
   return hex(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
 }
 
-async function hashPin(pin: string, saltHex: string): Promise<string> {
-  const key = await crypto.subtle.importKey('raw', encoder.encode(pin), 'PBKDF2', false, ['deriveBits']);
-  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)?.map(byte => Number.parseInt(byte, 16)) || []);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 150_000 }, key, 256);
-  return hex(new Uint8Array(bits));
+async function hashPin(pin: string, saltHex: string, pepper: string): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', encoder.encode(pepper), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${saltHex}:${pin}`));
+  return hex(new Uint8Array(signature));
 }
 
 function constantTimeEqual(left: string, right: string): boolean {
@@ -125,7 +124,7 @@ async function register(request: Request, env: Env): Promise<Response> {
   if (!classroom) return error('Dieser Klassen-Code existiert nicht.', 404, request, env);
   const learnerId = crypto.randomUUID();
   const salt = randomHex(16);
-  const pinHash = await hashPin(values.pin, salt);
+  const pinHash = await hashPin(values.pin, salt, env.AUTH_PEPPER);
   try {
     await env.DB.batch([
       env.DB.prepare('INSERT INTO learners (id,class_id,alias,pin_hash,pin_salt) VALUES (?1,?2,?3,?4,?5)').bind(learnerId,classroom.id,values.alias,pinHash,salt),
@@ -142,7 +141,7 @@ async function login(request: Request, env: Env): Promise<Response> {
   const values = credentials(await body(request));
   if (!values) return error('Anmeldedaten sind ungültig.', 400, request, env);
   const row = await env.DB.prepare(`SELECT l.id,l.alias,l.pin_hash,l.pin_salt,c.code AS class_code FROM learners l JOIN classes c ON c.id=l.class_id WHERE c.code=?1 AND l.alias=?2`).bind(values.classCode, values.alias).first<AuthenticatedLearner & { pin_hash: string; pin_salt: string }>();
-  const candidateHash = await hashPin(values.pin, row?.pin_salt ?? '00000000000000000000000000000000');
+  const candidateHash = await hashPin(values.pin, row?.pin_salt ?? '00000000000000000000000000000000', env.AUTH_PEPPER);
   if (!row || !constantTimeEqual(candidateHash, row.pin_hash)) return error('Klassen-Code, Lernname oder PIN stimmen nicht.', 401, request, env);
   const token = await createSession(row.id, env);
   return json({ token, ...(await progressPayload(row, env)) }, 200, corsHeaders(request, env));
